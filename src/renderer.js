@@ -1038,7 +1038,12 @@ const runtimeState = {
     wave: [],
     happy: [],
     curious: [],
-    groove: []
+    pose: [],
+    showcase: [],
+    groove: [],
+    spin: [],
+    stretch: [],
+    all: []
   },
   currentTrack: null,
   currentTrackReason: '',
@@ -6440,7 +6445,8 @@ async function openYouTubeFromRenderer(query, service = 'youtube-music', url = '
 }
 
 function summarizeAnimationLibrary() {
-  const parts = ['idle', 'wave', 'happy', 'curious', 'groove']
+  const parts = ANIMATION_LIBRARY_PRESET_KEYS
+    .filter((preset) => preset !== 'all' && getPresetPaths(preset).length)
     .map((preset) => `${preset}: ${getPresetPaths(preset).length}`)
     .join(', ');
   return `Animation library ready. ${parts}.`;
@@ -6671,8 +6677,38 @@ function getPresetPaths(preset) {
   return rawValue && !runtimeState.failedAnimations.has(rawValue) ? [rawValue] : [];
 }
 
+const ANIMATION_LIBRARY_PRESET_KEYS = ['idle', 'wave', 'happy', 'curious', 'pose', 'showcase', 'groove', 'spin', 'stretch', 'all'];
+
 function hasClipAnimations() {
-  return ['idle', 'wave', 'happy', 'curious', 'groove'].some((preset) => getPresetPaths(preset).length);
+  return ANIMATION_LIBRARY_PRESET_KEYS.some((preset) => getPresetPaths(preset).length);
+}
+
+function chooseAvailablePreset(options, fallback = 'idle') {
+  const weighted = [];
+
+  for (const option of options) {
+    const preset = typeof option === 'string' ? option : option?.preset;
+    const weight = typeof option === 'string' ? 1 : Number(option?.weight) || 1;
+    if (!preset || !getPresetPaths(preset).length) {
+      continue;
+    }
+    weighted.push({ preset, weight: Math.max(0.1, weight) });
+  }
+
+  if (!weighted.length) {
+    return getPresetPaths(fallback).length ? fallback : ANIMATION_LIBRARY_PRESET_KEYS.find((preset) => getPresetPaths(preset).length) || '';
+  }
+
+  const total = weighted.reduce((sum, entry) => sum + entry.weight, 0);
+  let roll = Math.random() * total;
+  for (const entry of weighted) {
+    roll -= entry.weight;
+    if (roll <= 0) {
+      return entry.preset;
+    }
+  }
+
+  return weighted[0].preset;
 }
 
 function clearAnimationController() {
@@ -6742,22 +6778,22 @@ const ANIMATION_INTENTS = {
     keywords: ['groove', 'dance', 'beat', 'bounce', 'bob', 'stretch', 'spin', '律动', '舞']
   },
   spin: {
-    preset: 'groove',
+    preset: 'spin',
     label: 'spin',
     keywords: ['spin', 'rotate', '旋转']
   },
   stretch: {
-    preset: 'groove',
+    preset: 'stretch',
     label: 'stretch',
     keywords: ['stretch', '屈伸']
   },
   pose: {
-    preset: 'curious',
+    preset: 'pose',
     label: 'pose',
     keywords: ['pose', 'model', 'showcase', 'fullbody', '展示', '姿势', '姿态']
   },
   showcase: {
-    preset: 'curious',
+    preset: 'showcase',
     label: 'showcase pose',
     keywords: ['showcase', 'fullbody', 'model', 'pose', '展示', '全身']
   },
@@ -6795,12 +6831,28 @@ function weightAnimationCandidate(preset, filePath, context) {
     }
   }
 
+  if (preset === 'spin' && context.hasMusic) {
+    w *= /spin|rotate|旋转/.test(base) ? 1.68 : 1.12;
+  }
+
+  if (preset === 'stretch' && (context.hasMusic || context.userIdle)) {
+    w *= /stretch|sway|bend|lean|屈伸|伸展/.test(base) ? 1.48 : 1.08;
+  }
+
   if (preset === 'curious' && (context.loading || context.screenBusy || context.socialBusy)) {
     if (/think|pose|model|inspect|show|curious|思考|姿势|展示|tilt/.test(base)) {
       w *= 1.45;
     } else {
       w *= 1.12;
     }
+  }
+
+  if (preset === 'pose' && (context.loading || context.screenBusy || context.socialBusy)) {
+    w *= /pose|stance|姿势|姿态/.test(base) ? 1.42 : 1.1;
+  }
+
+  if (preset === 'showcase' && (context.loading || context.screenBusy || context.sceneFamily === 'social')) {
+    w *= /showcase|fullbody|展示|全身/.test(base) ? 1.48 : 1.12;
   }
 
   if (preset === 'happy' && (context.dominantDrive === 'social' || context.dominantDrive === 'play')) {
@@ -6883,18 +6935,19 @@ function recordAnimationPick(preset, filePath) {
 
 function resolveAnimationPathForPreset(preset, force = false) {
   const presetPaths = getPresetPaths(preset);
-  if (!presetPaths.length) {
+  const fallbackPaths = presetPaths.length ? presetPaths : getPresetPaths('all');
+  if (!fallbackPaths.length) {
     return null;
   }
 
-  if (presetPaths.length === 1) {
-    return presetPaths[0];
+  if (fallbackPaths.length === 1) {
+    return fallbackPaths[0];
   }
 
   const now = performance.now() / 1000;
   const currentPath = runtimeState.activeAnimationPath;
-  const currentStillFits = runtimeState.activeAnimationPreset === preset && presetPaths.includes(currentPath);
-  const clipCount = presetPaths.length;
+  const currentStillFits = runtimeState.activeAnimationPreset === preset && fallbackPaths.includes(currentPath);
+  const clipCount = fallbackPaths.length;
   const baseHold = preset === 'idle' ? 7.2 : 4.9;
   const holdSeconds = baseHold + (clipCount >= 5 ? -0.85 : clipCount >= 3 ? -0.35 : 0);
 
@@ -6903,10 +6956,10 @@ function resolveAnimationPathForPreset(preset, force = false) {
   }
 
   const alternatives = currentStillFits
-    ? presetPaths.filter((path) => path !== currentPath)
-    : presetPaths;
+    ? fallbackPaths.filter((path) => path !== currentPath)
+    : fallbackPaths;
 
-  const pool = alternatives.length ? alternatives : presetPaths;
+  const pool = alternatives.length ? alternatives : fallbackPaths;
   const context = force ? { ...getAnimationSelectionContext(), loading: false, screenBusy: false } : getAnimationSelectionContext();
   const chosen = pickWeightedAnimationPath(pool, preset, context);
 
@@ -6914,7 +6967,7 @@ function resolveAnimationPathForPreset(preset, force = false) {
     recordAnimationPick(preset, chosen);
   }
 
-  return chosen || currentPath || presetPaths[0];
+  return chosen || currentPath || fallbackPaths[0];
 }
 
 function resolveAnimationPathForIntent(intentName, force = true) {
@@ -6924,12 +6977,13 @@ function resolveAnimationPathForIntent(intentName, force = true) {
   }
 
   const presetPaths = getPresetPaths(intent.preset);
-  if (!presetPaths.length) {
+  const fallbackPaths = presetPaths.length ? presetPaths : getPresetPaths('all');
+  if (!fallbackPaths.length) {
     return null;
   }
 
   const context = getAnimationSelectionContext();
-  const ranked = presetPaths
+  const ranked = fallbackPaths
     .map((filePath) => ({
       filePath,
       score: weightAnimationCandidate(intent.preset, filePath, context) + scoreAnimationIntentMatch(filePath, intent.keywords)
@@ -7442,13 +7496,9 @@ async function bootAnimationLibrary() {
   try {
     const payload = await window.desktopCompanion.listAnimationLibrary();
     runtimeState.animationLibrary = payload?.libraries || [];
-    runtimeState.animationPresets = {
-      idle: payload?.presets?.idle || [],
-      wave: payload?.presets?.wave || [],
-      happy: payload?.presets?.happy || [],
-      curious: payload?.presets?.curious || [],
-      groove: payload?.presets?.groove || []
-    };
+    runtimeState.animationPresets = Object.fromEntries(
+      ANIMATION_LIBRARY_PRESET_KEYS.map((preset) => [preset, payload?.presets?.[preset] || []])
+    );
 
     if (hasClipAnimations()) {
       const actionCount = Number(payload?.actionCount) || getLearnedActionCount();
@@ -7553,161 +7603,301 @@ function chooseAmbientPreset(now) {
 
   if (hasMusic) {
     if (!feeling?.preset && musicMood.confidence >= 0.34 && musicMood.presetBias) {
-      runtimeState.ambientPreset = musicMood.presetBias;
+      runtimeState.ambientPreset = chooseAvailablePreset([
+        { preset: musicMood.presetBias, weight: 3 },
+        { preset: musicMood.presetBias === 'groove' ? 'spin' : 'pose', weight: 1.2 },
+        { preset: musicMood.presetBias === 'groove' ? 'stretch' : 'showcase', weight: 1.1 },
+        { preset: 'happy', weight: 1.4 }
+      ], musicMood.presetBias);
       runtimeState.ambientUntil = now + 2.4 + Math.random() * 2.2 + musicMood.confidence;
       return;
     }
-    if (feeling?.preset === 'groove') {
-      runtimeState.ambientPreset = roll < 0.86 ? 'groove' : 'happy';
-    } else if (feeling?.preset === 'happy') {
-      runtimeState.ambientPreset = roll < 0.55 ? 'happy' : 'groove';
-    } else {
-      runtimeState.ambientPreset = roll < 0.74 ? 'groove' : 'happy';
-    }
+    const musicPool = feeling?.preset === 'groove'
+      ? [
+          { preset: 'groove', weight: 3 },
+          { preset: 'spin', weight: 1.6 },
+          { preset: 'stretch', weight: 1.35 },
+          { preset: 'happy', weight: 1.5 }
+        ]
+      : feeling?.preset === 'happy'
+        ? [
+            { preset: 'happy', weight: 2.8 },
+            { preset: 'groove', weight: 1.7 },
+            { preset: 'spin', weight: 1.1 },
+            { preset: 'showcase', weight: 0.9 }
+          ]
+        : [
+            { preset: 'groove', weight: 2.4 },
+            { preset: 'spin', weight: 1.4 },
+            { preset: 'stretch', weight: 1.2 },
+            { preset: 'happy', weight: 1.4 }
+          ];
+    runtimeState.ambientPreset = chooseAvailablePreset(musicPool, 'groove');
     runtimeState.ambientUntil = now + 2.5 + Math.random() * 2.4 + (feeling?.intensity || 0.35);
     return;
   }
 
   if (typingProfile.active && typingProfile.intensity >= 0.72) {
-    runtimeState.ambientPreset = 'idle';
+    runtimeState.ambientPreset = chooseAvailablePreset([
+      { preset: 'idle', weight: 3 },
+      { preset: 'curious', weight: 1.2 },
+      { preset: 'pose', weight: 0.9 }
+    ], 'idle');
     runtimeState.ambientUntil = now + 4 + typingProfile.intensity * 3.8;
     return;
   }
 
   if (dominantDrive === 'rest' && roll < 0.8) {
-    runtimeState.ambientPreset = 'idle';
+    runtimeState.ambientPreset = chooseAvailablePreset([
+      { preset: 'idle', weight: 3.4 },
+      { preset: 'curious', weight: 1.1 },
+      { preset: 'pose', weight: 0.9 }
+    ], 'idle');
     runtimeState.ambientUntil = now + 4.6 + Math.random() * 4.6;
     return;
   }
 
   if (dominantDrive === 'music' && roll < 0.72) {
-    runtimeState.ambientPreset = roll < 0.58 ? 'groove' : 'happy';
+    runtimeState.ambientPreset = chooseAvailablePreset([
+      { preset: 'groove', weight: 2.3 },
+      { preset: 'spin', weight: 1.3 },
+      { preset: 'stretch', weight: 1.1 },
+      { preset: 'happy', weight: 1.5 }
+    ], 'groove');
     runtimeState.ambientUntil = now + 2.6 + Math.random() * 2.4;
     return;
   }
 
   if (dominantDrive === 'curiosity' && roll < 0.72) {
-    runtimeState.ambientPreset = 'curious';
+    runtimeState.ambientPreset = chooseAvailablePreset([
+      { preset: 'curious', weight: 2.5 },
+      { preset: 'pose', weight: 1.3 },
+      { preset: 'showcase', weight: 1.1 },
+      { preset: 'idle', weight: 0.7 }
+    ], 'curious');
     runtimeState.ambientUntil = now + 2.8 + Math.random() * 3;
     return;
   }
 
   if (dominantDrive === 'social' && roll < 0.7) {
-    runtimeState.ambientPreset = roll < 0.56 ? 'wave' : 'happy';
+    runtimeState.ambientPreset = chooseAvailablePreset([
+      { preset: 'wave', weight: 2.2 },
+      { preset: 'happy', weight: 1.6 },
+      { preset: 'pose', weight: 1 },
+      { preset: 'showcase', weight: 0.9 }
+    ], 'wave');
     runtimeState.ambientUntil = now + 2.4 + Math.random() * 2.6;
     return;
   }
 
   if (dominantDrive === 'play' && roll < 0.72) {
-    runtimeState.ambientPreset = roll < 0.58 ? 'happy' : 'groove';
+    runtimeState.ambientPreset = chooseAvailablePreset([
+      { preset: 'happy', weight: 1.9 },
+      { preset: 'groove', weight: 1.9 },
+      { preset: 'spin', weight: 1.4 },
+      { preset: 'stretch', weight: 1 }
+    ], 'happy');
     runtimeState.ambientUntil = now + 2.4 + Math.random() * 2.4;
     return;
   }
 
   if (affect.sleepiness >= 0.74 && roll < 0.72) {
-    runtimeState.ambientPreset = 'idle';
+    runtimeState.ambientPreset = chooseAvailablePreset([
+      { preset: 'idle', weight: 3 },
+      { preset: 'stretch', weight: 1.1 },
+      { preset: 'curious', weight: 0.8 }
+    ], 'idle');
     runtimeState.ambientUntil = now + 5.2 + Math.random() * 5.6;
     return;
   }
 
   if (feeling?.preset === 'wave') {
-    runtimeState.ambientPreset = roll < 0.7 ? 'wave' : 'happy';
+    runtimeState.ambientPreset = chooseAvailablePreset([
+      { preset: 'wave', weight: 2.3 },
+      { preset: 'happy', weight: 1.5 },
+      { preset: 'pose', weight: 0.9 }
+    ], 'wave');
     runtimeState.ambientUntil = now + 1.8 + feeling.intensity * 2.4;
     return;
   }
 
   if (feeling?.preset === 'groove') {
-    runtimeState.ambientPreset = roll < 0.66 ? 'groove' : 'happy';
+    runtimeState.ambientPreset = chooseAvailablePreset([
+      { preset: 'groove', weight: 2.4 },
+      { preset: 'spin', weight: 1.4 },
+      { preset: 'stretch', weight: 1.2 },
+      { preset: 'happy', weight: 1.4 }
+    ], 'groove');
     runtimeState.ambientUntil = now + 2.2 + feeling.intensity * 2.6;
     return;
   }
 
   if (feeling?.preset === 'happy') {
-    runtimeState.ambientPreset = roll < 0.68 ? 'happy' : 'idle';
+    runtimeState.ambientPreset = chooseAvailablePreset([
+      { preset: 'happy', weight: 2.3 },
+      { preset: 'wave', weight: 1.1 },
+      { preset: 'pose', weight: 1 },
+      { preset: 'idle', weight: 0.9 }
+    ], 'happy');
     runtimeState.ambientUntil = now + 2.4 + feeling.intensity * 2.8;
     return;
   }
 
   if (feeling?.preset === 'curious') {
-    runtimeState.ambientPreset = roll < 0.76 ? 'curious' : 'idle';
+    runtimeState.ambientPreset = chooseAvailablePreset([
+      { preset: 'curious', weight: 2.5 },
+      { preset: 'pose', weight: 1.3 },
+      { preset: 'showcase', weight: 1.1 },
+      { preset: 'idle', weight: 0.8 }
+    ], 'curious');
     runtimeState.ambientUntil = now + 2.5 + feeling.intensity * 2.9;
     return;
   }
 
   if (settleDepth >= 0.82) {
     if (sceneFamily === 'music' || sceneFamily === 'social') {
-      runtimeState.ambientPreset = roll < 0.6 ? 'happy' : 'idle';
+      runtimeState.ambientPreset = chooseAvailablePreset([
+        { preset: 'happy', weight: 1.8 },
+        { preset: 'wave', weight: 1 },
+        { preset: 'idle', weight: 1.1 },
+        { preset: 'pose', weight: 0.8 }
+      ], 'idle');
       runtimeState.ambientUntil = now + 4.2 + Math.random() * 4.2;
       return;
     }
 
-    runtimeState.ambientPreset = roll < 0.72 ? 'idle' : 'curious';
+    runtimeState.ambientPreset = chooseAvailablePreset([
+      { preset: 'idle', weight: 2.3 },
+      { preset: 'curious', weight: 1.3 },
+      { preset: 'pose', weight: 1 },
+      { preset: 'showcase', weight: 0.8 }
+    ], 'idle');
     runtimeState.ambientUntil = now + 4.6 + Math.random() * 4.4;
     return;
   }
 
   if (settleDepth >= 0.5 && ['code', 'terminal', 'writing'].includes(sceneFamily)) {
-    runtimeState.ambientPreset = roll < 0.68 ? 'idle' : 'curious';
+    runtimeState.ambientPreset = chooseAvailablePreset([
+      { preset: 'idle', weight: 2.2 },
+      { preset: 'curious', weight: 1.4 },
+      { preset: 'pose', weight: 1 },
+      { preset: 'showcase', weight: 0.8 }
+    ], 'idle');
     runtimeState.ambientUntil = now + 3.6 + Math.random() * 3.8;
     return;
   }
 
   if (sceneFamily === 'music') {
-    runtimeState.ambientPreset = roll < 0.68 ? 'groove' : 'happy';
+    runtimeState.ambientPreset = chooseAvailablePreset([
+      { preset: 'groove', weight: 2.2 },
+      { preset: 'spin', weight: 1.3 },
+      { preset: 'stretch', weight: 1.1 },
+      { preset: 'happy', weight: 1.4 }
+    ], 'groove');
     runtimeState.ambientUntil = now + 2.6 + Math.random() * 2.6;
     return;
   }
 
   if (sceneFamily === 'social') {
-    runtimeState.ambientPreset = roll < 0.54 ? 'happy' : 'wave';
+    runtimeState.ambientPreset = chooseAvailablePreset([
+      { preset: 'wave', weight: 1.8 },
+      { preset: 'happy', weight: 1.8 },
+      { preset: 'pose', weight: 1.1 },
+      { preset: 'showcase', weight: 0.9 }
+    ], 'wave');
     runtimeState.ambientUntil = now + 2.2 + Math.random() * 2.2;
     return;
   }
 
   if (sceneFamily === 'art') {
-    runtimeState.ambientPreset = roll < 0.58 ? 'curious' : 'happy';
+    runtimeState.ambientPreset = chooseAvailablePreset([
+      { preset: 'curious', weight: 1.9 },
+      { preset: 'pose', weight: 1.3 },
+      { preset: 'showcase', weight: 1.1 },
+      { preset: 'happy', weight: 1 }
+    ], 'curious');
     runtimeState.ambientUntil = now + 2.6 + Math.random() * 2.6;
     return;
   }
 
   if (sceneFamily === 'code' || sceneFamily === 'terminal' || sceneFamily === 'writing') {
-    runtimeState.ambientPreset = roll < 0.72 ? 'curious' : 'idle';
+    runtimeState.ambientPreset = chooseAvailablePreset([
+      { preset: 'curious', weight: 2.1 },
+      { preset: 'pose', weight: 1.2 },
+      { preset: 'showcase', weight: 1 },
+      { preset: 'idle', weight: 1 }
+    ], 'curious');
     runtimeState.ambientUntil = now + 3.1 + Math.random() * 3.5;
     return;
   }
 
   if (sceneFamily === 'browser') {
-    runtimeState.ambientPreset = roll < 0.76 ? 'curious' : 'happy';
+    runtimeState.ambientPreset = chooseAvailablePreset([
+      { preset: 'curious', weight: 1.9 },
+      { preset: 'pose', weight: 1.1 },
+      { preset: 'showcase', weight: 1 },
+      { preset: 'happy', weight: 1 }
+    ], 'curious');
     runtimeState.ambientUntil = now + 2.8 + Math.random() * 2.8;
     return;
   }
 
   if (sceneFamily === 'game') {
-    runtimeState.ambientPreset = roll < 0.62 ? 'happy' : 'groove';
+    runtimeState.ambientPreset = chooseAvailablePreset([
+      { preset: 'happy', weight: 1.7 },
+      { preset: 'groove', weight: 1.8 },
+      { preset: 'spin', weight: 1.3 },
+      { preset: 'stretch', weight: 1 }
+    ], 'groove');
     runtimeState.ambientUntil = now + 2.4 + Math.random() * 2.4;
     return;
   }
 
   if (affect.curiosity >= 0.7) {
-    runtimeState.ambientPreset = roll < 0.72 ? 'curious' : 'idle';
+    runtimeState.ambientPreset = chooseAvailablePreset([
+      { preset: 'curious', weight: 2.2 },
+      { preset: 'pose', weight: 1.3 },
+      { preset: 'showcase', weight: 1 },
+      { preset: 'idle', weight: 0.9 }
+    ], 'curious');
     runtimeState.ambientUntil = now + 3 + Math.random() * 3.1;
     return;
   }
 
   if (affect.affection >= 0.7 || affect.sociability >= 0.72) {
-    runtimeState.ambientPreset = roll < 0.58 ? 'happy' : 'idle';
+    runtimeState.ambientPreset = chooseAvailablePreset([
+      { preset: 'happy', weight: 1.9 },
+      { preset: 'wave', weight: 1.1 },
+      { preset: 'pose', weight: 1 },
+      { preset: 'idle', weight: 0.9 }
+    ], 'happy');
     runtimeState.ambientUntil = now + 2.8 + Math.random() * 2.8;
     return;
   }
 
   if (roll < 0.58) {
-    runtimeState.ambientPreset = 'idle';
+    runtimeState.ambientPreset = chooseAvailablePreset([
+      { preset: 'idle', weight: 2.2 },
+      { preset: 'curious', weight: 1.3 },
+      { preset: 'pose', weight: 1 },
+      { preset: 'showcase', weight: 0.9 }
+    ], 'idle');
     runtimeState.ambientUntil = now + 3.6 + Math.random() * 4.4;
   } else if (roll < 0.86) {
-    runtimeState.ambientPreset = 'curious';
+    runtimeState.ambientPreset = chooseAvailablePreset([
+      { preset: 'curious', weight: 2 },
+      { preset: 'pose', weight: 1.2 },
+      { preset: 'showcase', weight: 1 },
+      { preset: 'idle', weight: 0.8 }
+    ], 'curious');
     runtimeState.ambientUntil = now + 2.8 + Math.random() * 3.4;
   } else {
-    runtimeState.ambientPreset = 'happy';
+    runtimeState.ambientPreset = chooseAvailablePreset([
+      { preset: 'happy', weight: 1.9 },
+      { preset: 'wave', weight: 1.1 },
+      { preset: 'pose', weight: 1 },
+      { preset: 'idle', weight: 0.8 }
+    ], 'happy');
     runtimeState.ambientUntil = now + 2.2 + Math.random() * 2.4;
   }
 }
@@ -7984,9 +8174,9 @@ function animateAvatar(delta, now) {
       aaWeight = 0.45 + Math.abs(Math.sin(now * 8)) * 0.35;
     }
 
-    if (bodyPreset === 'happy' || bodyPreset === 'groove' || bodyPreset === 'wave') {
+    if (bodyPreset === 'happy' || bodyPreset === 'groove' || bodyPreset === 'wave' || bodyPreset === 'spin' || bodyPreset === 'stretch') {
       happyWeight = 0.32 + audioLevel * 0.12 + perked * 0.08;
-    } else if (bodyPreset === 'curious') {
+    } else if (bodyPreset === 'curious' || bodyPreset === 'pose' || bodyPreset === 'showcase') {
       happyWeight = 0.12 + listening * 0.05;
     }
 

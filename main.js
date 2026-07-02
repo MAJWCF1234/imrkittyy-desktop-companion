@@ -40,6 +40,7 @@ const CLIENT_SCREENSHOT_DIR = path.join(CLIENT_DATA_ROOT, 'screenshots');
 const CLIENT_CALENDAR_DIR = path.join(CLIENT_DATA_ROOT, 'calendar');
 const CLIENT_MACROS_PATH = path.join(CLIENT_DATA_ROOT, 'macros.jsonl');
 const CLIENT_PLAYLISTS_PATH = path.join(CLIENT_DATA_ROOT, 'playlists.json');
+const ANIMATION_PRESET_KEYS = ['idle', 'wave', 'happy', 'curious', 'pose', 'showcase', 'groove', 'spin', 'stretch'];
 const ANIMATION_LIBRARY_CANDIDATES = [
   {
     source: 'Bundled Motion Pack',
@@ -1978,19 +1979,31 @@ async function listBundledAvatars() {
 }
 
 async function listAnimationFiles(folderPath) {
-  const entries = await fs.readdir(folderPath, { withFileTypes: true }).catch(() => []);
+  const files = [];
 
-  return entries
-    .filter((entry) => entry.isFile() && ANIMATION_EXTENSIONS.has(path.extname(entry.name).toLowerCase()))
-    .map((entry) => {
-      const fullPath = path.join(folderPath, entry.name);
-      return {
+  async function walk(currentFolderPath) {
+    const entries = await fs.readdir(currentFolderPath, { withFileTypes: true }).catch(() => []);
+    for (const entry of entries) {
+      const fullPath = path.join(currentFolderPath, entry.name);
+      if (entry.isDirectory()) {
+        await walk(fullPath);
+        continue;
+      }
+
+      if (!entry.isFile() || !ANIMATION_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
+        continue;
+      }
+
+      files.push({
         name: entry.name,
         path: fullPath,
         fileUrl: pathToFileURL(fullPath).href
-      };
-    })
-    .sort((left, right) => left.name.localeCompare(right.name, 'en'));
+      });
+    }
+  }
+
+  await walk(folderPath);
+  return files.sort((left, right) => left.name.localeCompare(right.name, 'en'));
 }
 
 function findAnimationPaths(files, candidates) {
@@ -2016,10 +2029,14 @@ function inferAnimationPresetFromBasename(fileName) {
   }
 
   const rules = [
-    ['groove', /(danc|groove|spin|stretch|sway|bob|bounce|beat|club|rave|hop|律动|旋转|屈伸|舞|跳)/],
+    ['spin', /(spin|rotate|rotation|twirl|swirl|turn|旋转)/],
+    ['stretch', /(stretch|sway|bend|lean|屈伸|伸展)/],
+    ['showcase', /(showcase|fullbody|full-body|display|present|展示|全身)/],
+    ['curious', /(curious|think|ponder|look|lean|inspect|model|action|shoot|wonder|琢磨|思考|姿势|姿态|射击|tilt)/],
+    ['pose', /(pose|stance|figure|posture|modeling|姿势|姿态)/],
+    ['groove', /(danc|groove|bob|bounce|beat|club|rave|hop|律动|舞|跳)/],
     ['wave', /(wave|greet|hello|salut|bye|挥手|问候|致意|你好|招手|hi[_-]|waving)/],
     ['happy', /(happy|smile|joy|cheer|laugh|clap|vsign|peace|liked|耶|开心|高兴|喜)/],
-    ['curious', /(curious|think|ponder|look|lean|inspect|pose|action|shoot|model|showcase|wonder|琢磨|思考|姿势|姿态|射击|展示|tilt)/],
     ['idle', /(idle|wait|stand|neutral|relax|rest|待機|等待|站立|静)/]
   ];
 
@@ -2099,13 +2116,19 @@ async function listAnimationLibraries() {
     ]),
     curious: findAnimationPaths(allFiles, [
       'curious-model-pose.vrma',
-      'showcase-fullbody.vrma',
-      'pose-action.vrma',
-      '模特姿势.vrma',
-      '全身展示.vrma',
-      '射击姿态.vrma',
       'VRMA_04.vrma',
-      'VRMA_06.vrma'
+      'VRMA_06.vrma',
+      '模特姿势.vrma'
+    ]),
+    pose: findAnimationPaths(allFiles, [
+      'pose-action.vrma',
+      '姿势.vrma',
+      '姿态.vrma'
+    ]),
+    showcase: findAnimationPaths(allFiles, [
+      'showcase-fullbody.vrma',
+      '全身展示.vrma',
+      '展示.vrma'
     ]),
     groove: findAnimationPaths(allFiles, [
       'groove-spin.vrma',
@@ -2114,10 +2137,19 @@ async function listAnimationLibraries() {
       '屈伸运动.vrma',
       'VRMA_05.vrma',
       'VRMA_07.vrma'
+    ]),
+    spin: findAnimationPaths(allFiles, [
+      'groove-spin.vrma',
+      '旋转.vrma'
+    ]),
+    stretch: findAnimationPaths(allFiles, [
+      'groove-stretch.vrma',
+      '屈伸运动.vrma'
     ])
   };
 
   mergeHeuristicPresetAssignments(allFiles, presets);
+  presets.all = [...new Set(allFiles.map((file) => file.path))];
 
   return {
     libraries,
