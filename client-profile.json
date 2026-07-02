@@ -1,0 +1,49 @@
+{
+  "client": "imrkittyy",
+  "assistantName": "Mai",
+  "appName": "Mai Desktop Companion for imrkittyy",
+  "studioName": "LM Studio",
+  "defaultBaseUrl": "http://127.0.0.1:1234/v1",
+  "fallbackBaseUrl": "http://localhost:1234/v1",
+  "suggestedModel": "lmstudio-community/gemma-4-31B-it-GGUF",
+  "localModelFolder": "models",
+  "portableLmStudioFolder": "lmstudio",
+  "preferredAvatarFile": "Mrkitty'sgirl.vrm",
+  "voiceLabel": "Mai local voice",
+  "greeting": "Mai is awake and keeping the desktop company.",
+  "character": {
+    "description": "An attractive red-headed waifu-style desktop companion with a playful, teasing, reactive presence.",
+    "tone": "playful, bright, lightly mischievous, helpful, concise, and never mean",
+    "visualStyle": "clean grey, silver, white, and black with light blue accents",
+    "boundaries": "Do not do virus hunting or aggressive automatic file sorting. For cleanup, suggest and ask before destructive moves."
+  },
+  "features": [
+    "voice conversation",
+    "text chat",
+    "desktop avatar",
+    "music playback and playlist handling",
+    "screen reading",
+    "app launching",
+    "shortcuts and macros",
+    "simple reminders",
+    "notes",
+    "web search assistance",
+    "reactive expressions",
+    "idle behavior",
+    "file organization assistance",
+    "personality tuning",
+    "memory tuning"
+  ],
+  "addons": [
+    "local document reader",
+    "simple voice commands",
+    "alarm clock and timers",
+    "calendar reminders",
+    "clipboard history saver",
+    "screenshot organizer",
+    "file search helper",
+    "folder cleanup tools",
+    "simple diagnoser",
+    "future addon slot"
+  ]
+}

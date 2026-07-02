@@ -1,0 +1,20 @@
+{
+  "name": "imrkittyy-desktop-companion",
+  "version": "0.1.0",
+  "description": "A custom Mai desktop companion build for imrkittyy with screen sense, Auto DJ, local tools, voice, and VRM avatars powered by LM Studio.",
+  "main": "main.js",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite --host 127.0.0.1 --port 4173",
+    "start": "npm run build && electron ."
+  },
+  "dependencies": {
+    "@pixiv/three-vrm": "^3.5.1",
+    "@pixiv/three-vrm-animation": "^3.5.1",
+    "electron": "^41.1.1",
+    "three": "^0.183.2"
+  },
+  "devDependencies": {
+    "vite": "^8.0.3"
+  }
+}

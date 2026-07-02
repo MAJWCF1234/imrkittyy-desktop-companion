@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mai Desktop Companion for imrkittyy</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <div class="drag-handle" aria-hidden="true"></div>
+      <header class="titlebar">
+        <div class="title-copy">
+          <span class="eyebrow">Custom build for imrkittyy</span>
+          <h1>Mai Desktop Companion</h1>
+        </div>
+
+        <div class="window-buttons no-drag">
+          <button id="settingsBtn" type="button" aria-label="Open settings menu" aria-expanded="false">Settings</button>
+          <button id="gameCamBtn" type="button" aria-label="Toggle Game Cam mode">Game Cam</button>
+          <button id="presenceBtn" type="button" aria-label="Toggle Desktop Presence mode">Presence</button>
+          <button id="modeVoiceBtn" type="button" title="Voice command input">Voice</button>
+          <button id="minimizeBtn" type="button" aria-label="Minimize window">-</button>
+          <button id="closeBtn" type="button" aria-label="Close window">x</button>
+        </div>
+      </header>
+
+      <main class="content">
+        <section class="avatar-panel">
+          <div class="avatar-stage">
+            <div id="avatarHome" class="avatar-home" aria-hidden="true"></div>
+            <canvas id="avatarCanvas"></canvas>
+            <div class="avatar-glow"></div>
+            <div class="bubble-layer" aria-live="polite">
+              <div id="speechBubble" class="companion-bubble speech"></div>
+              <div id="thoughtBubble" class="companion-bubble thought"></div>
+            </div>
+          </div>
+
+          <section class="avatar-console no-drag">
+            <div class="avatar-console-bar">
+              <p id="avatarConsoleSummary" class="avatar-console-summary">Mrkitty'sgirl.vrm is loaded and remembered.</p>
+              <button id="toggleAvatarConsoleBtn" class="avatar-console-toggle" type="button" aria-expanded="false">Fit</button>
+            </div>
+
+            <div id="avatarConsoleBody" class="avatar-console-body">
+              <div class="single-avatar-strip">
+                <div>
+                  <span class="single-avatar-kicker">Current avatar</span>
+                  <strong id="avatarLockLabel">Mrkitty'sgirl.vrm</strong>
+                </div>
+                <span class="single-avatar-pill">Client build</span>
+              </div>
+
+              <div class="avatar-toolbar avatar-toolbar-secondary">
+                <select id="bundledAvatarSelect">
+                  <option value="">Bundled avatars</option>
+                </select>
+                <button id="cycleAvatarBtn" type="button">Next Avatar</button>
+                <button id="loadAvatarBtn" type="button">Load VRM</button>
+              </div>
+
+              <div class="avatar-fit-controls">
+                <label class="fit-field">
+                  <span>Zoom</span>
+                  <input id="avatarZoomInput" type="range" min="75" max="135" step="1" value="100" />
+                </label>
+                <label class="fit-field">
+                  <span>Lift</span>
+                  <input id="avatarLiftInput" type="range" min="-30" max="30" step="1" value="0" />
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <div class="state-chips">
+            <span id="watchChip" class="state-chip">Auto watch off</span>
+            <span id="djChip" class="state-chip">Auto DJ off</span>
+            <span id="feelingChip" class="state-chip">Feeling settled</span>
+            <span id="socialChip" class="state-chip">Standalone build</span>
+          </div>
+
+          <p id="avatarStatus" class="avatar-status">Mai is set to the bundled client avatar.</p>
+        </section>
+
+        <section class="chat-panel">
+          <div class="control-deck">
+            <section class="overview-card">
+              <div class="card-header card-header-compact">
+                <div>
+                  <span class="eyebrow eyebrow-small">Overview</span>
+                  <h2>At A Glance</h2>
+                </div>
+              </div>
+
+              <div class="overview-grid">
+                <article class="overview-pill">
+                  <span class="summary-label">Model</span>
+                  <p id="overviewModel" class="overview-copy">Waiting for LM Studio.</p>
+                </article>
+                <article class="overview-pill">
+                  <span class="summary-label">Room</span>
+                  <p id="overviewRoom" class="overview-copy">No scene learned yet.</p>
+                </article>
+                <article class="overview-pill">
+                  <span class="summary-label">Music</span>
+                  <p id="overviewMusic" class="overview-copy">No library ready yet.</p>
+                </article>
+                <article class="overview-pill">
+                  <span class="summary-label">Social</span>
+                  <p id="overviewSocial" class="overview-copy">Sidecar asleep.</p>
+                </article>
+              </div>
+            </section>
+
+            <div class="settings-card" data-panel="models">
+              <div class="card-header">
+                <div>
+                  <span class="eyebrow eyebrow-small">Models</span>
+                  <h2>LM Studio</h2>
+                  <p id="modelsSummary" class="card-summary">Point this at the bundled/local LM Studio server, then click Refresh.</p>
+                </div>
+                <div class="card-actions">
+                  <button id="refreshModelsBtn" type="button">Refresh</button>
+                  <button class="card-toggle" data-panel-toggle="models" type="button" aria-expanded="true">Hide</button>
+                </div>
+              </div>
+
+              <div class="card-body">
+                <label class="field">
+                  <span>LM Studio URL</span>
+                    <input id="baseUrlInput" type="text" value="http://127.0.0.1:1234/v1" />
+                </label>
+
+                <div class="split-fields">
+                  <label class="field">
+                    <span>Chat model</span>
+                    <select id="modelSelect">
+                      <option value="">Auto detect first loaded model</option>
+                    </select>
+                  </label>
+
+                  <label class="field">
+                    <span>Vision model</span>
+                    <select id="visionModelSelect">
+                      <option value="">Use chat model for vision</option>
+                    </select>
+                  </label>
+                </div>
+
+                <label class="field field-small">
+                  <span>Temperature</span>
+                  <input id="temperatureInput" type="number" min="0" max="2" step="0.1" value="0.8" />
+                </label>
+
+                <p id="connectionStatus" class="connection-status">Point this at local LM Studio, then click Refresh.</p>
+              </div>
+            </div>
+
+            <section class="capability-card" data-panel="screen">
+              <div class="card-header">
+                <div>
+                  <span class="eyebrow eyebrow-small">Screen Sense</span>
+                  <h2>See What You're Doing</h2>
+                  <p id="screenSummaryLine" class="card-summary">Capture a scene once, or let Mai watch gently in the background.</p>
+                </div>
+                <div class="card-actions">
+                  <button id="analyzeScreenBtn" type="button">Analyze Now</button>
+                  <button class="card-toggle" data-panel-toggle="screen" type="button" aria-expanded="true">Hide</button>
+                </div>
+              </div>
+
+              <div class="card-body">
+                <div class="inline-actions">
+                  <label class="field field-small">
+                    <span>Watch every (sec)</span>
+                    <input id="watchIntervalInput" type="number" min="10" max="300" step="5" value="45" />
+                  </label>
+
+                  <button id="toggleAutoWatchBtn" class="toggle-btn" type="button">Auto Watch Off</button>
+                  <button id="recentScreenshotsBtn" type="button">Recent Shots</button>
+                </div>
+
+                <p id="screenStatus" class="connection-status">Use a vision-capable model in LM Studio for screenshot analysis.</p>
+
+                <div class="summary-box">
+                  <span class="summary-label">Active window</span>
+                  <p id="activeWindowLabel" class="summary-copy">Nothing captured yet.</p>
+                  <span class="summary-label">Latest summary</span>
+                  <p id="screenSummary" class="summary-copy">No desktop context yet.</p>
+                </div>
+              </div>
+            </section>
+
+            <section class="capability-card" data-panel="music">
+              <div class="card-header">
+                <div>
+                  <span class="eyebrow eyebrow-small">Auto DJ</span>
+                  <h2>Pick Your Music</h2>
+                  <p id="musicSummaryLine" class="card-summary">Choose a folder and Mai can start learning your taste.</p>
+                </div>
+                <div class="card-actions">
+                  <button id="chooseMusicFolderBtn" type="button">Choose Folder</button>
+                  <button class="card-toggle" data-panel-toggle="music" type="button" aria-expanded="true">Hide</button>
+                </div>
+              </div>
+
+              <div class="card-body">
+                <div class="inline-actions inline-actions-wide">
+                  <button id="scanMusicBtn" type="button">Scan Library</button>
+                  <button id="toggleAutoDjBtn" class="toggle-btn" type="button">Auto DJ Off</button>
+                  <button id="nextTrackBtn" type="button">Next Track</button>
+                  <button id="savePlaylistBtn" type="button">Save Playlist</button>
+                  <button id="loadPlaylistBtn" type="button">Load Playlist</button>
+                </div>
+
+                <p id="musicFolderLabel" class="folder-label">Library: not set</p>
+
+                <div class="summary-box">
+                  <span class="summary-label">Now playing</span>
+                  <p id="currentTrackTitle" class="summary-copy track-title">Nothing queued</p>
+                  <p id="currentTrackMeta" class="summary-copy track-meta">Point this at your music folder and it will start learning your taste.</p>
+                </div>
+
+                <div class="inline-actions inline-actions-wide">
+                  <button id="likeTrackBtn" type="button">Like</button>
+                  <button id="dislikeTrackBtn" type="button">Skip / Dislike</button>
+                </div>
+
+                <p id="musicStatus" class="connection-status">Auto DJ uses your screen context, filename cues, and your own skip/like history.</p>
+              </div>
+            </section>
+          </div>
+
+          <section class="conversation-card">
+            <div class="conversation-header">
+              <div>
+                <span class="eyebrow eyebrow-small">Conversation</span>
+                <h2>Talk To Mai</h2>
+              </div>
+              <p class="conversation-note">Chat stays coherent by folding in live screen cues, music taste, long-term memory, and local toolkit results.</p>
+            </div>
+
+            <div class="conversation-tools no-drag">
+              <div class="quick-actions">
+                <button id="quickScreenBtn" class="quick-action-btn" type="button">See Screen</button>
+                <button id="quickWatchBtn" class="quick-action-btn" type="button">Auto Watch Off</button>
+                <button id="quickMusicBtn" class="quick-action-btn" type="button">Music</button>
+                <button id="quickSocialBtn" class="quick-action-btn" type="button" hidden>Standalone</button>
+              </div>
+
+              <div class="suggestion-row">
+                <button class="suggestion-chip" data-suggestion="What kind of room is this?" type="button">Read The Room</button>
+                <button class="suggestion-chip" data-suggestion="Pick a song that fits what I'm doing." type="button">Pick A Song</button>
+                <button class="suggestion-chip" data-suggestion="Show my recent screenshots." type="button">Recent Shots</button>
+                <button class="suggestion-chip" data-suggestion="Summarize what you remember about our current build." type="button">What Do You Remember?</button>
+              </div>
+            </div>
+
+            <div id="messages" class="messages"></div>
+
+            <form id="chatForm" class="composer no-drag">
+              <textarea
+                id="messageInput"
+                rows="3"
+                placeholder="Ask your local companion anything..."
+              ></textarea>
+              <button id="listenBtn" type="button" title="Voice command input">Voice</button>
+              <button id="sendBtn" type="submit">Send</button>
+              <div class="composer-meta">
+                <span id="composerHint" class="composer-hint">Enter sends. Shift+Enter makes a new line.</span>
+              </div>
+            </form>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <div id="settingsMenuShell" class="settings-menu-shell no-drag" aria-hidden="true">
+      <button id="settingsScrim" class="settings-scrim" type="button" aria-label="Close settings"></button>
+      <aside class="settings-menu" role="dialog" aria-modal="true" aria-labelledby="settingsMenuTitle">
+        <div class="settings-menu-header">
+          <div>
+            <span class="eyebrow eyebrow-small">Settings</span>
+            <h2 id="settingsMenuTitle">Mai Settings</h2>
+            <p class="settings-note">These save instantly and shape how Mai sounds, behaves, and takes up space.</p>
+          </div>
+          <button id="closeSettingsBtn" type="button" aria-label="Close settings menu">Close</button>
+        </div>
+
+        <section class="settings-group">
+          <div class="settings-group-header">
+            <span class="summary-label">Language</span>
+            <p class="settings-note">Choose whether Mai's interface, chat, and spoken responses stay in English or Spanish.</p>
+          </div>
+
+          <label class="field">
+            <span>Language</span>
+            <select id="languageInput">
+              <option value="en">English</option>
+              <option value="es">Spanish</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="settings-group">
+          <div class="settings-group-header">
+            <span class="summary-label">Audio</span>
+            <p class="settings-note">Tune Mai's music volume without touching the rest of your desktop.</p>
+          </div>
+
+          <label class="range-field">
+            <span>Music volume</span>
+            <div class="range-row">
+              <input id="volumeInput" type="range" min="0" max="100" step="1" value="55" />
+              <output id="volumeValue" for="volumeInput">55%</output>
+            </div>
+          </label>
+        </section>
+
+        <section class="settings-group">
+          <div class="settings-group-header">
+            <span class="summary-label">Behavior</span>
+            <p class="settings-note">Control how proactive and expressive Mai feels during the day.</p>
+          </div>
+
+          <label class="toggle-field">
+            <div>
+              <span class="toggle-title">Routine autonomy</span>
+              <p class="toggle-copy">Lets Mai follow drives, rituals, and playful idle habits instead of waiting for manual prompts.</p>
+            </div>
+            <input id="autonomyEnabledInput" type="checkbox" checked />
+          </label>
+
+          <label class="toggle-field">
+            <div>
+              <span class="toggle-title">Proactive presence</span>
+              <p class="toggle-copy">Lets Mai speak on her own when the room changes or enough time passes.</p>
+            </div>
+            <input id="presenceEnabledInput" type="checkbox" checked />
+          </label>
+
+          <label class="toggle-field">
+            <div>
+              <span class="toggle-title">Reaction media shares</span>
+              <p class="toggle-copy">Allows contextual memes and GIFs when they fit the moment.</p>
+            </div>
+            <input id="contextMediaEnabledInput" type="checkbox" checked />
+          </label>
+
+          <label class="toggle-field">
+            <div>
+              <span class="toggle-title">Screen comments</span>
+              <p class="toggle-copy">Lets screen checks produce a spoken reaction instead of a silent summary only.</p>
+            </div>
+            <input id="screenCommentsEnabledInput" type="checkbox" checked />
+          </label>
+
+          <label class="text-field">
+            <span class="toggle-title">Personality tuning</span>
+            <p class="toggle-copy">Extra guidance for how Mai should sound and carry herself.</p>
+            <textarea id="personalityToneInput" rows="3" placeholder="Playful, a little teasing, warm, concise, and softly futuristic."></textarea>
+          </label>
+
+          <label class="text-field">
+            <span class="toggle-title">Memory tuning</span>
+            <p class="toggle-copy">What Mai should prioritize remembering about the user and the project.</p>
+            <textarea id="memoryFocusInput" rows="4" placeholder="Prioritize preferences, routines, ongoing build choices, music taste, and relationship continuity."></textarea>
+          </label>
+        </section>
+
+        <section class="settings-group">
+          <div class="settings-group-header">
+            <span class="summary-label">Display</span>
+            <p class="settings-note">Shape the room, bubbles, and panel density without digging through the full UI.</p>
+          </div>
+
+          <label class="toggle-field">
+            <div>
+              <span class="toggle-title">Local voice</span>
+              <p class="toggle-copy">Uses Mai's installed local voice with mouth motion for short spoken lines.</p>
+            </div>
+            <input id="localVoiceEnabledInput" type="checkbox" />
+          </label>
+
+          <label class="toggle-field">
+            <div>
+              <span class="toggle-title">3D home room</span>
+              <p class="toggle-copy">Shows Mai inside her bedroom scene instead of the plain stage backdrop.</p>
+            </div>
+            <input id="homeSceneEnabledInput" type="checkbox" checked />
+          </label>
+
+          <label class="toggle-field">
+            <div>
+              <span class="toggle-title">Speech and thought bubbles</span>
+              <p class="toggle-copy">Keeps Game Cam bubble callouts visible while Mai thinks and talks.</p>
+            </div>
+            <input id="bubblesEnabledInput" type="checkbox" checked />
+          </label>
+
+          <label class="toggle-field">
+            <div>
+              <span class="toggle-title">Compact controls</span>
+              <p class="toggle-copy">Shrinks non-essential controls so the chat and room get more breathing space.</p>
+            </div>
+            <input id="compactUiEnabledInput" type="checkbox" />
+          </label>
+        </section>
+      </aside>
+    </div>
+
+    <audio id="audioPlayer" preload="metadata"></audio>
+
+    <script type="module" src="./renderer.js"></script>
+  </body>
+</html>
