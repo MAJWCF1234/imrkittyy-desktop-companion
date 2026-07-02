@@ -1,11 +1,14 @@
 # MrKittysAI / Mai Desktop Companion
 
+The actual app now lives in `app/` so the repo root stays clean.
+
 ## Quick Start on Windows 11
 
 1. Install [Node.js LTS](https://nodejs.org/).
 2. Install [LM Studio](https://lmstudio.ai/).
 3. Clone or download this repository.
-4. Open the folder and run `Start-Mai.cmd`.
+4. Double-click `Install-Mai.cmd` once if you want the desktop shortcut created.
+5. Double-click `Start-Mai.cmd` to launch.
 
 ## What the launcher does
 
@@ -22,6 +25,7 @@ You do not need to reinstall it. The launcher will detect it and skip straight t
 
 - If Node.js and npm are installed, `Start-Mai.cmd` can install dependencies and launch the app.
 - If Node.js is not installed, the launcher will still work only when the repo includes the bundled Electron runtime and a built `dist` folder.
+- `Install-Mai.cmd` can be used first to create the desktop shortcut and verify dependencies.
 
 ## Notes
 
